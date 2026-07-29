@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Remote Assist</string>
+
+    <string name="consent_title">Cho phép điều khiển từ xa</string>
+    <string name="consent_body">Ứng dụng này sẽ:\n\n• Quay và truyền màn hình của máy này sang thiết bị bạn chọn\n• Cho phép thiết bị đó chạm, vuốt thay bạn trên máy này\n\nChỉ tiếp tục nếu bạn tin tưởng người sẽ điều khiển máy này. Bạn có thể ngắt kết nối bất cứ lúc nào bằng nút trong thông báo.</string>
+    <string name="consent_checkbox">Tôi đồng ý cho phép thiết bị khác điều khiển máy này</string>
+    <string name="btn_generate_code">Tạo mã ghép nối</string>
+
+    <string name="pairing_code_label">Mã ghép nối của bạn</string>
+    <string name="pairing_code_hint">Đọc mã này cho người cần điều khiển máy bạn</string>
+    <string name="btn_end_session">Kết thúc phiên</string>
+
+    <string name="controller_title">Nhập mã để điều khiển</string>
+    <string name="controller_code_hint">Nhập mã 6 số</string>
+    <string name="btn_connect">Kết nối</string>
+
+    <string name="notif_channel_name">Chia sẻ màn hình</string>
+    <string name="notif_title">Đang chia sẻ màn hình</string>
+    <string name="notif_text">Thiết bị khác đang xem/điều khiển máy này. Chạm để ngắt.</string>
+
+    <string name="accessibility_service_description">Dịch vụ này cho phép một thiết bị khác thực hiện thao tác chạm/vuốt thay bạn trên máy này, chỉ sau khi bạn đã đồng ý và tạo mã ghép nối trong ứng dụng Remote Assist. Bạn có thể tắt dịch vụ này bất cứ lúc nào tại đây.</string>
+</resources>

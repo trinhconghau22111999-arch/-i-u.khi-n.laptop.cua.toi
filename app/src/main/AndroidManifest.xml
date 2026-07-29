@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Cần internet để kết nối Firebase và truyền video WebRTC -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Cần để hiện thông báo "Đang chia sẻ màn hình" liên tục khi phiên đang chạy -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Chỉ dùng để giữ màn hình sáng trong lúc phiên hỗ trợ đang diễn ra -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.RemoteAssist">
+
+        <!-- Màn hình chọn vai trò: Điều khiển hay Được điều khiển -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Máy B: màn hình xin sự đồng ý + tạo mã ghép nối -->
+        <activity android:name=".ConsentActivity" android:exported="false" />
+
+        <!-- Máy A: màn hình nhập mã + xem/điều khiển màn hình máy B -->
+        <activity android:name=".ControllerActivity" android:exported="false" />
+
+        <!--
+            Foreground Service trên Máy B: bắt buộc hiện thông báo liên tục
+            trong suốt thời gian màn hình đang được chia sẻ.
+        -->
+        <service
+            android:name=".RemoteHostService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <!--
+            AccessibilityService: CHỈ nhận tọa độ chạm từ Máy A và thực hiện thao tác
+            thay người dùng. Không có logic ẩn/chặn ứng dụng nào của Máy B.
+            Người dùng phải tự vào Cài đặt > Hỗ trợ để bật dịch vụ này thủ công —
+            đây là cơ chế bảo vệ minh bạch do chính Android quy định.
+        -->
+        <service
+            android:name=".InputInjectionService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+    </application>
+</manifest>
