@@ -12,7 +12,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.firebase.database.FirebaseDatabase
 
 /**
  * Máy B (máy sẽ bị/được điều khiển).
@@ -32,7 +31,6 @@ class ConsentActivity : AppCompatActivity() {
     private lateinit var textPairingCode: TextView
     private lateinit var btnEndSession: Button
 
-    private val database = FirebaseDatabase.getInstance().reference
     private var roomCode: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,15 +98,16 @@ class ConsentActivity : AppCompatActivity() {
         val code = (100000..999999).random().toString()
         roomCode = code
 
-        database.child("rooms").child(code).setValue(
-            mapOf(
-                "status" to "waiting",
-                "consentGivenAt" to System.currentTimeMillis()
-            )
-        )
+        // Lưu code vào SharedPreferences ĐẦU TIÊN — InputInjectionService đọc từ đây
+        // khi onServiceConnected() được gọi (có thể sớm hơn cả khi ConsentActivity xong).
+        getSharedPreferences("remote_assist", MODE_PRIVATE).edit()
+            .putString("active_room_code", code).apply()
 
-        // TODO: khởi động RemoteHostService thật, truyền kèm projectionData
-        // để service dùng MediaProjection + WebRTC bắt đầu stream màn hình.
+        com.google.firebase.database.FirebaseDatabase.getInstance().reference
+            .child("rooms").child(code).setValue(
+                mapOf("status" to "waiting", "consentGivenAt" to System.currentTimeMillis())
+            )
+
         val serviceIntent = Intent(this, RemoteHostService::class.java).apply {
             putExtra(RemoteHostService.EXTRA_ROOM_CODE, code)
             putExtra(RemoteHostService.EXTRA_PROJECTION_DATA, projectionData)
@@ -121,11 +120,16 @@ class ConsentActivity : AppCompatActivity() {
 
     private fun endSession() {
         roomCode?.let { code ->
-            database.child("rooms").child(code).child("status").setValue("ended")
+            com.google.firebase.database.FirebaseDatabase.getInstance().reference
+                .child("rooms").child(code).child("status").setValue("ended")
         }
+        // Xóa code khỏi SharedPreferences khi kết thúc
+        getSharedPreferences("remote_assist", MODE_PRIVATE).edit()
+            .remove("active_room_code").apply()
         stopService(Intent(this, RemoteHostService::class.java))
         layoutPairingCode.visibility = android.view.View.GONE
         checkboxConsent.isChecked = false
+        roomCode = null
     }
 
     companion object {
