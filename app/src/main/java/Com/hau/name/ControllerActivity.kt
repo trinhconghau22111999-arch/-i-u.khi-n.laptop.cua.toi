@@ -179,30 +179,33 @@ class ControllerActivity : AppCompatActivity() {
 
     private fun setupTouchHandling() {
         remoteRenderer.setOnTouchListener { view, event ->
-            val ratio = videoRectRatio(view.width, view.height) ?: return@setOnTouchListener true
-            val xRatio = (event.x - ratio.left) / ratio.width
-            val yRatio = (event.y - ratio.top) / ratio.height
-            // Chạm rơi vào viền đen (letterbox) — không có nội dung màn hình Máy B ở đó, bỏ qua.
-            if (xRatio < 0f || xRatio > 1f || yRatio < 0f || yRatio > 1f) return@setOnTouchListener true
+            // videoRectRatio() trả về null khi chưa nhận được onFrameResolutionChanged (thường
+            // xảy ra ở cú chạm đầu tiên, ngay sau khi vừa kết nối xong). Thay vì bỏ qua toàn
+            // bộ chạm đó (lỗi "chạm 1 cái không ăn"), dùng toàn bộ view làm vùng video tạm —
+            // tọa độ sẽ hơi lệch nếu video có letterbox, nhưng vẫn tốt hơn là mất thao tác.
+            val rect = videoRectRatio(view.width, view.height)
+                ?: VideoRect(0f, 0f, view.width.toFloat(), view.height.toFloat())
+            val xRatio = (event.x - rect.left) / rect.width
+            val yRatio = (event.y - rect.top) / rect.height
+            val xClamped = xRatio.coerceIn(0f, 1f)
+            val yClamped = yRatio.coerceIn(0f, 1f)
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    swipeStartX = xRatio
-                    swipeStartY = yRatio
+                    swipeStartX = xClamped
+                    swipeStartY = yClamped
                     swipeStartTime = System.currentTimeMillis()
                 }
                 android.view.MotionEvent.ACTION_UP -> {
-                    val dx = xRatio - swipeStartX
-                    val dy = yRatio - swipeStartY
+                    val dx = xClamped - swipeStartX
+                    val dy = yClamped - swipeStartY
                     val dist = kotlin.math.sqrt((dx * dx + dy * dy).toDouble())
                     val duration = System.currentTimeMillis() - swipeStartTime
                     if (dist < 0.02) {
-                        // Tap: jitter dưới 2% chiều rộng
                         sendCommand(mapOf("type" to "tap", "x" to swipeStartX, "y" to swipeStartY))
                     } else {
-                        // Swipe
                         sendCommand(mapOf("type" to "swipe",
                             "x" to swipeStartX, "y" to swipeStartY,
-                            "x2" to xRatio, "y2" to yRatio,
+                            "x2" to xClamped, "y2" to yClamped,
                             "duration" to duration.coerceIn(100, 1000)))
                     }
                 }
