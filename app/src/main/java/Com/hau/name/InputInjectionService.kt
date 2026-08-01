@@ -87,13 +87,18 @@ class InputInjectionService : AccessibilityService() {
         Log.d(TAG, "Nhan lenh: $type")
         val x = snapshot.child("x").getValue(Double::class.java) ?: return
         val y = snapshot.child("y").getValue(Double::class.java) ?: return
-        val metrics = resources.displayMetrics
-        val maxX = (metrics.widthPixels - 1).toFloat()
-        val maxY = (metrics.heightPixels - 1).toFloat()
+        // QUAN TRỌNG: phải dùng CÙNG một nguồn kích thước màn hình với RemoteHostService
+        // (ScreenMetrics.realSize — kích thước vật lý đầy đủ, bao gồm nav bar) để khớp với
+        // hệ quy chiếu mà tỷ lệ x/y đã được tính khi Máy A gửi lên. Trước đây dùng
+        // resources.displayMetrics (loại trừ nav bar) khiến tọa độ Y bị lệch đúng bằng
+        // chiều cao nav bar khi thực thi gesture.
+        val (screenWidth, screenHeight) = ScreenMetrics.realSize(this)
+        val maxX = (screenWidth - 1).toFloat()
+        val maxY = (screenHeight - 1).toFloat()
         // Clamp tọa độ về [0, max-1] — ControllerActivity gửi giá trị đã coerceIn([0,1]) nhưng
         // để chắc chắn không bao giờ dispatch gesture ngoài màn hình vật lý.
-        val px = (x.toFloat() * metrics.widthPixels).coerceIn(0f, maxX)
-        val py = (y.toFloat() * metrics.heightPixels).coerceIn(0f, maxY)
+        val px = (x.toFloat() * screenWidth).coerceIn(0f, maxX)
+        val py = (y.toFloat() * screenHeight).coerceIn(0f, maxY)
 
         when (type) {
             "tap" -> performTap(px, py)
@@ -102,8 +107,8 @@ class InputInjectionService : AccessibilityService() {
                 val y2 = snapshot.child("y2").getValue(Double::class.java) ?: return
                 val duration = snapshot.child("duration").getValue(Long::class.java) ?: 300L
                 performSwipe(px, py,
-                    (x2.toFloat() * metrics.widthPixels).coerceIn(0f, maxX),
-                    (y2.toFloat() * metrics.heightPixels).coerceIn(0f, maxY),
+                    (x2.toFloat() * screenWidth).coerceIn(0f, maxX),
+                    (y2.toFloat() * screenHeight).coerceIn(0f, maxY),
                     duration)
             }
         }

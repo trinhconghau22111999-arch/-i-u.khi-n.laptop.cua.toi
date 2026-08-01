@@ -10,9 +10,7 @@ import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.IBinder
-import android.util.DisplayMetrics
 import android.util.Log
-import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import Com.hau.name.webrtc.PeerConnectionManager
 import Com.hau.name.webrtc.SignalingClient
@@ -102,19 +100,6 @@ class RemoteHostService : Service() {
         peerConnectionManager = pcm
         pcm.init()
 
-        // Khởi tạo ScreenCapturer sau khi PeerConnection sẵn sàng
-        val metrics = DisplayMetrics()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            (getSystemService(WINDOW_SERVICE) as WindowManager)
-                .currentWindowMetrics.bounds.let {
-                    metrics.widthPixels = it.width(); metrics.heightPixels = it.height()
-                    metrics.densityDpi = resources.displayMetrics.densityDpi
-                }
-        } else {
-            @Suppress("DEPRECATION")
-            (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getMetrics(metrics)
-        }
-
         surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
         videoSource = pcm.factory.createVideoSource(true)
 
@@ -125,11 +110,35 @@ class RemoteHostService : Service() {
             }
         })
         screenCapturer!!.initialize(surfaceTextureHelper, applicationContext, videoSource!!.capturerObserver)
-        // Full độ phân giải màn hình + 30fps — WebRTC tự điều chỉnh bitrate theo băng thông thực tế
-        // (congestion control có sẵn trong stack), không cần cắt thủ công từ đầu.
-        screenCapturer!!.startCapture(metrics.widthPixels, metrics.heightPixels, 30)
+        // Capture ở độ phân giải gốc (vd. 1080x2400) và 30fps quá nặng cho encoder phần cứng
+        // của nhiều máy tầm trung, đồng thời tạo luồng bitrate quá lớn so với băng thông thực tế
+        // khi phải đi qua TURN relay trên mạng di động → gây lag/khựng khi Máy A nhận hình.
+        // Vì tọa độ chạm gửi đi là TỶ LỆ (0..1), không phải pixel tuyệt đối, nên hạ độ phân giải
+        // capture không ảnh hưởng độ chính xác điều khiển. Giữ đúng tỉ lệ khung hình gốc, chỉ
+        // giảm kích thước tối đa cạnh dài xuống CAPTURE_MAX_DIMENSION và fps xuống CAPTURE_FPS.
+        // Kích thước gốc lấy từ ScreenMetrics.realSize() — CÙNG một nguồn với InputInjectionService
+        // dùng để quy đổi tọa độ chạm, đảm bảo 2 bên luôn khớp hệ quy chiếu pixel.
+        val (rawWidth, rawHeight) = ScreenMetrics.realSize(this)
+        val (captureWidth, captureHeight) = scaledCaptureSize(rawWidth, rawHeight)
+        screenCapturer!!.startCapture(captureWidth, captureHeight, CAPTURE_FPS)
 
         pcm.addVideoTrackAndOffer(videoSource!!)
+    }
+
+    /**
+     * Co kích thước capture theo đúng tỉ lệ khung hình gốc, giới hạn cạnh dài không vượt quá
+     * [CAPTURE_MAX_DIMENSION]. Kích thước trả về luôn là số chẵn (bắt buộc với hầu hết encoder
+     * phần cứng H264/VP8).
+     */
+    private fun scaledCaptureSize(rawWidth: Int, rawHeight: Int): Pair<Int, Int> {
+        val longSide = maxOf(rawWidth, rawHeight)
+        if (longSide <= CAPTURE_MAX_DIMENSION) {
+            return (rawWidth and 1.inv()) to (rawHeight and 1.inv())
+        }
+        val scale = CAPTURE_MAX_DIMENSION.toFloat() / longSide.toFloat()
+        val w = (rawWidth * scale).toInt() and 1.inv()
+        val h = (rawHeight * scale).toInt() and 1.inv()
+        return w to h
     }
 
     private fun buildNotification(): android.app.Notification {
@@ -183,5 +192,12 @@ class RemoteHostService : Service() {
         const val EXTRA_PROJECTION_DATA = "extra_projection_data"
         const val ACTION_STOP_SHARING = "action_stop_sharing"
         private const val NOTIF_ID = 42
+
+        // Cạnh dài tối đa khi capture (px) — 1280 vẫn đủ nét để đọc UI/văn bản trên điện thoại,
+        // nhưng giảm đáng kể tải encoder so với capture full-res (thường 1080-1440 chiều ngắn).
+        private const val CAPTURE_MAX_DIMENSION = 1280
+        // Nội dung màn hình phần lớn tĩnh giữa các lần chạm — 20fps đủ mượt cho remote-control,
+        // không cần 30fps như video call, giúp giảm tải mã hoá và băng thông cần thiết.
+        private const val CAPTURE_FPS = 20
     }
 }

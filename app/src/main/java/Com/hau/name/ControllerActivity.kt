@@ -7,6 +7,8 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import Com.hau.name.webrtc.PeerConnectionManager
 import Com.hau.name.webrtc.SignalingClient
 import com.google.firebase.database.FirebaseDatabase
@@ -40,11 +42,14 @@ class ControllerActivity : AppCompatActivity() {
     @Volatile private var remoteFrameWidth: Int = 0
     @Volatile private var remoteFrameHeight: Int = 0
 
-    // Chiều cao navigation bar (3 nút ≡ ○ ↩) của Máy A — event.y từ touch được tính từ
-    // góc trên-trái màn hình vật lý (bao gồm vùng nav bar), nhưng view layout bị Android
-    // đẩy lên trên nav bar theo insets → tọa độ chạm bị lệch xuống đúng bằng navBarHeight.
-    // Đọc qua WindowInsets (API 23+) thay vì Resources.getDimensionPixelSize vì giá trị
-    // Resources có thể sai trên máy dùng gesture navigation (nav bar = 0) hoặc tablet.
+    // Chiều cao navigation bar (3 nút ≡ ○ ↩, hoặc gesture bar) của Máy A. Một số thiết bị/ROM
+    // không tự động chừa khoảng trống cho nav bar khi View dùng match_parent bên trong
+    // ConstraintLayout gốc → SurfaceViewRenderer bị vẽ đè lên vùng nav bar, đẩy video lên
+    // và làm sai lệch vùng hiển thị thật. Thay vì cố "trừ bù" tọa độ chạm theo navBarHeight
+    // (dễ sai vì event.x/y của setOnTouchListener vốn đã là tọa độ TRONG VIEW), ta lấy trực
+    // tiếp giá trị insets thật qua WindowInsets rồi set làm padding cho remoteViewContainer.
+    // Nhờ đó view (và cả videoRectRatio/touch mapping dựa trên view.width/height) luôn chỉ
+    // chiếm đúng phần màn hình phía trên nav bar, dù người dùng vẫn giữ nav bar 3 phím.
     @Volatile private var navBarHeight: Int = 0
 
     // Views
@@ -63,6 +68,18 @@ class ControllerActivity : AppCompatActivity() {
         remoteViewContainer = findViewById(R.id.remote_view_container)
         editCode = findViewById(R.id.edit_pairing_code)
         btnConnect = findViewById(R.id.btn_connect)
+
+        // Chừa đúng khoảng trống nav bar thật (đọc từ hệ thống, không đoán theo Resources)
+        // bằng cách pad container chứa SurfaceViewRenderer. FrameLayout tôn trọng padding
+        // với con match_parent, nên remoteRenderer sẽ tự co lại đúng vùng phía trên nav bar
+        // — video không bị đè, và event.x/y trong setupTouchHandling() tự động đúng theo.
+        ViewCompat.setOnApplyWindowInsetsListener(remoteViewContainer) { view, windowInsets ->
+            val navBars = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            navBarHeight = navBars.bottom
+            view.setPadding(navBars.left, view.paddingTop, navBars.right, navBars.bottom)
+            windowInsets
+        }
+        ViewCompat.requestApplyInsets(remoteViewContainer)
 
         // Nút ngắt kết nối trong màn hình điều khiển
         findViewById<Button>(R.id.btn_disconnect).setOnClickListener {

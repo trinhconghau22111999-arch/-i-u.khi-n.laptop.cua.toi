@@ -53,8 +53,15 @@ ghi đè phòng của người khác.
    (đã được tạo sẵn từ file bạn cung cấp, không cần tự mã hóa lại):
 
    ```
-   ewogICJwcm9qZWN0X2luZm8iOiB7CiAgICAicHJvamVjdF9udW1iZXIiOiAiNDg5NzIxODI4NTI4IiwKICAgICJmaXJlYmFzZV91cmwiOiAiaHR0cHM6Ly9jaGVja2lub25saW5lLTc4NWQ1LWRlZmF1bHQtcnRkYi5hc2lhLXNvdXRoZWFzdDEuZmlyZWJhc2VkYXRhYmFzZS5hcHAiLAogICAgInByb2plY3RfaWQiOiAiY2hlY2tpbm9ubGluZS03ODVkNSIsCiAgICAic3RvcmFnZV9idWNrZXQiOiAiY2hlY2tpbm9ubGluZS03ODVkNS5maXJlYmFzZXN0b3JhZ2UuYXBwIgogIH0sCiAgImNsaWVudCI6IFsKICAgIHsKICAgICAgImNsaWVudF9pbmZvIjogewogICAgICAgICJtb2JpbGVzZGtfYXBwX2lkIjogIjE6NDg5NzIxODI4NTI4OmFuZHJvaWQ6ZjAyN2RjMTk4ZjBmM2ZlYmFhNTc3NSIsCiAgICAgICAgImFuZHJvaWRfY2xpZW50X2luZm8iOiB7CiAgICAgICAgICAicGFja2FnZV9uYW1lIjogIkNvbS5oYXUubmFtZSIKICAgICAgICB9CiAgICAgIH0sCiAgICAgICJvYXV0aF9jbGllbnQiOiBbXSwKICAgICAgImFwaV9rZXkiOiBbCiAgICAgICAgewogICAgICAgICAgImN1cnJlbnRfa2V5IjogIkFJemFTeURFWVFfaXlUOWRFRGNFOGpYRDJRRTBuYjlHNDM5eXY1MCIKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJzZXJ2aWNlcyI6IHsKICAgICAgICAiYXBwaW52aXRlX3NlcnZpY2UiOiB7CiAgICAgICAgICAib3RoZXJfcGxhdGZvcm1fb2F1dGhfY2xpZW50IjogW10KICAgICAgICB9CiAgICAgIH0KICAgIH0KICBdLAogICJjb25maWd1cmF0aW9uX3ZlcnNpb24iOiAiMSIKfQ==
+   ⚠️ ĐÃ XOÁ — chuỗi base64 gốc chứa API key + Firebase URL thật đã bị dán
+   nhầm trực tiếp vào README (thay vì chỉ lưu trong GitHub Secret), khiến
+   dự án Firebase bị public. Key đó coi như đã lộ vĩnh viễn (vẫn còn trong
+   lịch sử Git) — cần rotate API key trong Google Cloud Console / Firebase
+   Console, rồi tự tạo base64 mới từ file google-services.json của bạn:
+   `base64 -w0 google-services.json` và dán riêng vào ô GitHub Secret,
+   KHÔNG dán vào file này hay bất kỳ file nào được commit lên repo.
    ```
+
 
 3. Vào tab **Actions**, chạy workflow **Build Debug APK** (hoặc chỉ cần push
    lên nhánh `main`).

@@ -22,6 +22,12 @@ import org.webrtc.VideoTrack
 
 private const val TAG = "PeerConnectionManager"
 
+// Bitrate cho track video màn hình (Máy B -> Máy A). 1280px cạnh dài @20fps không cần quá cao;
+// đặt trần vừa phải để tránh nghẽn khi đi qua TURN relay trên mạng di động, đồng thời đặt sàn
+// đủ để chữ trên màn hình còn đọc được khi mạng tốt.
+private const val MAX_VIDEO_BITRATE_BPS = 2_000_000
+private const val MIN_VIDEO_BITRATE_BPS = 300_000
+
 /** ICE servers dùng STUN công khai của Google + TURN dự phòng nếu 2 máy khác mạng LAN. */
 private val ICE_SERVERS = listOf(
     PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
@@ -142,8 +148,27 @@ class PeerConnectionManager(
      */
     fun addVideoTrackAndOffer(videoSource: VideoSource) {
         localVideoTrack = factory.createVideoTrack("screen_track", videoSource)
-        peerConnection?.addTrack(localVideoTrack!!, listOf("screen_stream"))
+        val sender = peerConnection?.addTrack(localVideoTrack!!, listOf("screen_stream"))
+        sender?.let { configureVideoEncoding(it) }
         createAndSendOffer()
+    }
+
+    /**
+     * Giới hạn bitrate tối đa cho track video màn hình. Không set thì WebRTC có thể ước lượng
+     * bitrate ban đầu quá cao so với thực tế mạng di động/TURN relay, gây nghẽn hàng đợi gửi
+     * và làm hình ảnh về Máy A bị lag/khựng thay vì hạ chất lượng mượt mà theo băng thông.
+     * MAINTAIN_FRAMERATE: khi băng thông không đủ, ưu tiên giữ tốc độ khung hình (đỡ giật/lag,
+     * đúng nhu cầu điều khiển từ xa) và chấp nhận giảm độ phân giải trước.
+     */
+    private fun configureVideoEncoding(sender: org.webrtc.RtpSender) {
+        val params = sender.parameters
+        if (params.encodings.isNotEmpty()) {
+            val encoding = params.encodings[0]
+            encoding.maxBitrateBps = MAX_VIDEO_BITRATE_BPS
+            encoding.minBitrateBps = MIN_VIDEO_BITRATE_BPS
+        }
+        params.degradationPreference = org.webrtc.RtpParameters.DegradationPreference.MAINTAIN_FRAMERATE
+        sender.parameters = params
     }
 
     /** Nhận offer từ Máy B, set remote description rồi tạo answer. */
