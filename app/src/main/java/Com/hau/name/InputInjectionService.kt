@@ -84,6 +84,7 @@ class InputInjectionService : AccessibilityService() {
 
     private fun handleCommand(snapshot: DataSnapshot) {
         val type = snapshot.child("type").getValue(String::class.java) ?: return
+        Log.d(TAG, "Nhan lenh: $type")
         val x = snapshot.child("x").getValue(Double::class.java) ?: return
         val y = snapshot.child("y").getValue(Double::class.java) ?: return
         val metrics = resources.displayMetrics
@@ -107,7 +108,8 @@ class InputInjectionService : AccessibilityService() {
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0, 50))
             .build()
-        dispatchGesture(gesture, null, null)
+        val accepted = dispatchGesture(gesture, null, null)
+        Log.d(TAG, "dispatchGesture(tap) accepted=$accepted")
     }
 
     private fun performSwipe(x1: Float, y1: Float, x2: Float, y2: Float, durationMs: Long) {
@@ -115,7 +117,8 @@ class InputInjectionService : AccessibilityService() {
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
             .build()
-        dispatchGesture(gesture, null, null)
+        val accepted = dispatchGesture(gesture, null, null)
+        Log.d(TAG, "dispatchGesture(swipe) accepted=$accepted")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}

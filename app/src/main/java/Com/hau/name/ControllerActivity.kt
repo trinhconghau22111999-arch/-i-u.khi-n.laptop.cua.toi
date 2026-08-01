@@ -192,6 +192,12 @@ class ControllerActivity : AppCompatActivity() {
         // push() thay vì setValue() để tránh replay lệnh cũ khi InputInjectionService
         // reconnect vào Firebase — ChildEventListener chỉ nhận lệnh MỚI thêm vào.
         commandsRef?.push()?.setValue(data)
+            ?.addOnFailureListener { e ->
+                Log.e(TAG, "Gui lenh chạm thất bại: ${e.message}")
+                runOnUiThread {
+                    Toast.makeText(this, "Không gửi được lệnh chạm: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
     }
 
     private fun showCodeEntry() {
