@@ -2,7 +2,6 @@ package Com.hau.name
 
 import android.os.Bundle
 import android.util.Log
-import android.view.MotionEvent
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -51,6 +50,14 @@ class ControllerActivity : AppCompatActivity() {
         editCode = findViewById(R.id.edit_pairing_code)
         btnConnect = findViewById(R.id.btn_connect)
 
+        // Nút ngắt kết nối trong màn hình điều khiển
+        findViewById<Button>(R.id.btn_disconnect).setOnClickListener {
+            connectedRoomCode?.let { code ->
+                database.child("rooms").child(code).child("status").setValue("ended")
+            }
+            showCodeEntry()
+        }
+
         // Thêm SurfaceViewRenderer vào container để render video Máy B
         remoteRenderer = SurfaceViewRenderer(this).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -60,14 +67,7 @@ class ControllerActivity : AppCompatActivity() {
         }
         remoteViewContainer.addView(remoteRenderer)
         remoteRenderer.init(eglBase.eglBaseContext, null)
-
-        // Chuyển tiếp thao tác chạm trên màn hình Máy B → gửi lệnh về Máy B
-        remoteRenderer.setOnTouchListener { view, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                sendTapCommand(event.x / view.width, event.y / view.height)
-            }
-            true
-        }
+        setupTouchHandling()
 
         btnConnect.setOnClickListener {
             val code = editCode.text.toString().trim()
@@ -150,12 +150,48 @@ class ControllerActivity : AppCompatActivity() {
         // SignalingClient đã start() trong pcm.init() → tự động lắng nghe offer từ Máy B
     }
 
-    private fun sendTapCommand(xRatio: Float, yRatio: Float) {
-        val code = connectedRoomCode ?: return
-        database.child("rooms").child(code).child("controlCommand").setValue(
-            mapOf("type" to "tap", "x" to xRatio, "y" to yRatio,
-                "timestamp" to System.currentTimeMillis())
-        )
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
+    private var swipeStartTime = 0L
+    private val commandsRef get() = connectedRoomCode?.let {
+        database.child("rooms").child(it).child("controlCommands")
+    }
+
+    private fun setupTouchHandling() {
+        remoteRenderer.setOnTouchListener { view, event ->
+            val xRatio = event.x / view.width
+            val yRatio = event.y / view.height
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    swipeStartX = xRatio
+                    swipeStartY = yRatio
+                    swipeStartTime = System.currentTimeMillis()
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    val dx = xRatio - swipeStartX
+                    val dy = yRatio - swipeStartY
+                    val dist = Math.sqrt((dx * dx + dy * dy).toDouble())
+                    val duration = System.currentTimeMillis() - swipeStartTime
+                    if (dist < 0.02) {
+                        // Tap: jitter dưới 2% chiều rộng
+                        sendCommand(mapOf("type" to "tap", "x" to swipeStartX, "y" to swipeStartY))
+                    } else {
+                        // Swipe
+                        sendCommand(mapOf("type" to "swipe",
+                            "x" to swipeStartX, "y" to swipeStartY,
+                            "x2" to xRatio, "y2" to yRatio,
+                            "duration" to duration.coerceIn(100, 1000)))
+                    }
+                }
+            }
+            true
+        }
+    }
+
+    private fun sendCommand(data: Map<String, Any>) {
+        // push() thay vì setValue() để tránh replay lệnh cũ khi InputInjectionService
+        // reconnect vào Firebase — ChildEventListener chỉ nhận lệnh MỚI thêm vào.
+        commandsRef?.push()?.setValue(data)
     }
 
     private fun showCodeEntry() {

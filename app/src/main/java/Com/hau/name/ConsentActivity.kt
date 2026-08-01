@@ -5,6 +5,9 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.text.TextUtils
+import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.TextView
@@ -30,6 +33,8 @@ class ConsentActivity : AppCompatActivity() {
     private lateinit var layoutPairingCode: android.widget.LinearLayout
     private lateinit var textPairingCode: TextView
     private lateinit var btnEndSession: Button
+    private lateinit var bannerAccessibility: View
+    private lateinit var btnOpenAccessibility: Button
 
     private var roomCode: String? = null
 
@@ -42,21 +47,46 @@ class ConsentActivity : AppCompatActivity() {
         layoutPairingCode = findViewById(R.id.layout_pairing_code)
         textPairingCode = findViewById(R.id.text_pairing_code)
         btnEndSession = findViewById(R.id.btn_end_session)
+        bannerAccessibility = findViewById(R.id.banner_accessibility)
+        btnOpenAccessibility = findViewById(R.id.btn_open_accessibility)
 
-        // Nút tạo mã chỉ bật khi người dùng đã tick đồng ý — bắt buộc theo yêu cầu.
-        btnGenerateCode.isEnabled = false
         checkboxConsent.setOnCheckedChangeListener { _, isChecked ->
             btnGenerateCode.isEnabled = isChecked
         }
+        btnGenerateCode.isEnabled = false
+
+        btnOpenAccessibility.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
 
         btnGenerateCode.setOnClickListener {
+            if (!isAccessibilityServiceEnabled()) {
+                Toast.makeText(this, "Vui lòng bật Dịch vụ Hỗ trợ trước khi tạo mã",
+                    Toast.LENGTH_LONG).show()
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                return@setOnClickListener
+            }
             requestNotificationPermissionIfNeeded()
             requestScreenCapturePermission()
         }
 
-        btnEndSession.setOnClickListener {
-            endSession()
-        }
+        btnEndSession.setOnClickListener { endSession() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Cập nhật banner mỗi khi người dùng quay lại (vd. sau khi bật Accessibility)
+        bannerAccessibility.visibility =
+            if (isAccessibilityServiceEnabled()) View.GONE else View.VISIBLE
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val service = "$packageName/${InputInjectionService::class.java.canonicalName}"
+        val enabled = try {
+            Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        } catch (_: Exception) { return false }
+        return TextUtils.SimpleStringSplitter(':').also { it.setString(enabled ?: "") }
+            .asSequence().any { it.equals(service, ignoreCase = true) }
     }
 
     private fun requestNotificationPermissionIfNeeded() {
