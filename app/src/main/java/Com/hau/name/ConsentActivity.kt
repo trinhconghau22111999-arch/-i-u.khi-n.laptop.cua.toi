@@ -137,16 +137,28 @@ class ConsentActivity : AppCompatActivity() {
         getSharedPreferences("remote_assist", MODE_PRIVATE).edit()
             .putString("active_room_code", code).apply()
 
-        com.google.firebase.database.FirebaseDatabase.getInstance().reference
-            .child("rooms").child(code).setValue(
-                mapOf("status" to "waiting", "consentGivenAt" to System.currentTimeMillis())
-            )
-
+        // QUAN TRỌNG: Android yêu cầu khởi động foreground service dùng MediaProjection
+        // gần như NGAY LẬP TỨC trong luồng xử lý kết quả cấp quyền (onActivityResult).
+        // Nếu trễ (kể cả vài trăm ms chờ Firebase) hệ thống có thể coi quyền đã hết hiệu lực
+        // và service khởi động thất bại. Do đó KHÔNG được chờ Firebase ghi xong rồi mới gọi
+        // startForegroundService — phải gọi ngay, Firebase ghi song song ở dưới.
         val serviceIntent = Intent(this, RemoteHostService::class.java).apply {
             putExtra(RemoteHostService.EXTRA_ROOM_CODE, code)
             putExtra(RemoteHostService.EXTRA_PROJECTION_DATA, projectionData)
         }
         ContextCompat.startForegroundService(this, serviceIntent)
+
+        // Ghi Firebase chạy song song, không chặn luồng chính. Nếu thất bại chỉ báo Toast.
+        com.google.firebase.database.FirebaseDatabase.getInstance().reference
+            .child("rooms").child(code).setValue(
+                mapOf("status" to "waiting", "consentGivenAt" to System.currentTimeMillis())
+            ).addOnFailureListener { e ->
+                Toast.makeText(
+                    this,
+                    "Không thể ghi trạng thái phòng lên máy chủ: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
 
         textPairingCode.text = code
         layoutPairingCode.visibility = android.view.View.VISIBLE
