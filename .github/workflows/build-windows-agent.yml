@@ -1,0 +1,45 @@
+name: Build Windows Agent
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "windows-agent/**"
+      - ".github/workflows/build-windows-agent.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        working-directory: windows-agent
+        run: dotnet restore
+
+      - name: Build
+        working-directory: windows-agent
+        run: dotnet build --configuration Release --no-restore
+
+      # Đóng gói thành 1 file .exe duy nhất, tự chứa .NET runtime bên trong
+      # (self-contained) -> người dùng KHÔNG cần cài .NET để chạy.
+      - name: Publish single-file exe
+        working-directory: windows-agent
+        run: >
+          dotnet publish -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish
+
+      - name: Upload WindowsAgent.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WindowsAgent-exe
+          path: windows-agent/publish/WindowsAgent.exe
+          retention-days: 30
