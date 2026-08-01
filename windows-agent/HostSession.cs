@@ -43,13 +43,13 @@ public sealed class HostSession : IAsyncDisposable
         };
         _pc = new RTCPeerConnection(config);
 
-        _videoTrack = new MediaStreamTrack(SDPWellKnownMediaFormatsEnum.VP8.ToString(), MediaStreamStatusEnum.SendOnly);
+        _videoTrack = new MediaStreamTrack(new VideoFormat(VideoCodecsEnum.VP8, 96), MediaStreamStatusEnum.SendOnly);
         _pc.addTrack(_videoTrack);
 
         _pc.onicecandidate += (cand) =>
         {
             if (cand == null) return;
-            _ = _signaling.SendIceCandidateAsync(cand.sdpMid ?? "0", cand.sdpMLineIndex ?? 0, cand.candidate);
+            _ = _signaling.SendIceCandidateAsync(cand.sdpMid ?? "0", cand.sdpMLineIndex, cand.candidate);
         };
 
         _pc.onconnectionstatechange += (state) =>

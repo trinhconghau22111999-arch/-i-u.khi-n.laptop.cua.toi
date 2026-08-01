@@ -5,6 +5,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <UseWindowsForms>false</UseWindowsForms>
     <!-- System.Drawing.Common (GDI screen capture) chỉ chạy trên Windows kể từ .NET 6+,
          net8.0-windows đã tự cho phép dùng, không cần EnableWindowsTargeting thêm. -->
