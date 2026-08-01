@@ -85,8 +85,12 @@ class ConsentActivity : AppCompatActivity() {
         val enabled = try {
             Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
         } catch (_: Exception) { return false }
-        return TextUtils.SimpleStringSplitter(':').also { it.setString(enabled ?: "") }
-            .asSequence().any { it.equals(service, ignoreCase = true) }
+        val splitter = TextUtils.SimpleStringSplitter(':')
+        splitter.setString(enabled ?: "")
+        while (splitter.hasNext()) {
+            if (splitter.next().equals(service, ignoreCase = true)) return true
+        }
+        return false
     }
 
     private fun requestNotificationPermissionIfNeeded() {
