@@ -40,6 +40,13 @@ class ControllerActivity : AppCompatActivity() {
     @Volatile private var remoteFrameWidth: Int = 0
     @Volatile private var remoteFrameHeight: Int = 0
 
+    // Chiều cao navigation bar (3 nút ≡ ○ ↩) của Máy A — event.y từ touch được tính từ
+    // góc trên-trái màn hình vật lý (bao gồm vùng nav bar), nhưng view layout bị Android
+    // đẩy lên trên nav bar theo insets → tọa độ chạm bị lệch xuống đúng bằng navBarHeight.
+    // Đọc qua WindowInsets (API 23+) thay vì Resources.getDimensionPixelSize vì giá trị
+    // Resources có thể sai trên máy dùng gesture navigation (nav bar = 0) hoặc tablet.
+    @Volatile private var navBarHeight: Int = 0
+
     // Views
     private lateinit var layoutCodeEntry: android.widget.LinearLayout
     private lateinit var remoteViewContainer: FrameLayout
@@ -51,6 +58,16 @@ class ControllerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_controller)
 
         eglBase = EglBase.create()
+
+        // Đọc navigation bar inset sớm nhất có thể — ViewCompat.setOnApplyWindowInsetsListener
+        // được gọi lại mỗi khi insets thay đổi (xoay màn hình, bật/tắt gesture nav...) nên
+        // navBarHeight luôn phản ánh đúng trạng thái hiện tại.
+        val rootView = window.decorView.rootView
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
+            val navInsets = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            navBarHeight = navInsets.bottom
+            insets
+        }
 
         layoutCodeEntry = findViewById(R.id.layout_code_entry)
         remoteViewContainer = findViewById(R.id.remote_view_container)
@@ -182,29 +199,27 @@ class ControllerActivity : AppCompatActivity() {
             val rect = videoRectRatio(view.width, view.height)
                 ?: VideoRect(0f, 0f, view.width.toFloat(), view.height.toFloat())
 
-            // Chuyển pixel chạm -> tọa độ chuẩn hoá [0,1] trong vùng video thật.
-            // KHÔNG coerceIn ở đây — nếu ngón tay trượt ra letterbox, vẫn ghi nhận
-            // tọa độ thật (có thể < 0 hoặc > 1) để swipe ra rìa không bị kéo về giữa.
-            // InputInjectionService dùng coerceAtLeast/coerceAtMost khi nhân với pixels
-            // nên không bao giờ chạm ngoài màn hình Máy B.
+            // event.y được đo từ góc trên-trái màn hình VẬT LÝ (bao gồm navigation bar),
+            // nhưng view.height KHÔNG tính navigation bar (bị Android đẩy lên trên insets).
+            // → phải trừ đi navBarHeight để event.y và view height cùng hệ quy chiếu.
+            // navBarHeight = 0 trên máy dùng gesture navigation (full-screen swipe), nên
+            // phép trừ này an toàn cho cả 2 kiểu nav.
+            val adjustedY = event.y - navBarHeight
+
             fun toRatio(px: Float, origin: Float, size: Float) = (px - origin) / size
 
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     swipeStartX = toRatio(event.x, rect.left, rect.width).coerceIn(0f, 1f)
-                    swipeStartY = toRatio(event.y, rect.top, rect.height).coerceIn(0f, 1f)
+                    swipeStartY = toRatio(adjustedY, rect.top, rect.height).coerceIn(0f, 1f)
                     swipeStartTime = System.currentTimeMillis()
                 }
                 android.view.MotionEvent.ACTION_UP -> {
-                    // Điểm cuối swipe: clamp về [0,1] vì ngoài màn hình Máy B không có gì
                     val xEnd = toRatio(event.x, rect.left, rect.width).coerceIn(0f, 1f)
-                    val yEnd = toRatio(event.y, rect.top, rect.height).coerceIn(0f, 1f)
+                    val yEnd = toRatio(adjustedY, rect.top, rect.height).coerceIn(0f, 1f)
                     val dx = xEnd - swipeStartX
                     val dy = yEnd - swipeStartY
                     val duration = System.currentTimeMillis() - swipeStartTime
-
-                    // Ngưỡng tap: 20px pixel thật thay vì tỉ lệ 2% —
-                    // tỉ lệ 2% trên view 400px chỉ = 8px, dễ bị nhầm thành swipe do jitter ngón tay.
                     val distPx = kotlin.math.sqrt(
                         (dx * rect.width) * (dx * rect.width) +
                         (dy * rect.height) * (dy * rect.height)
