@@ -6,10 +6,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
-import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import android.util.DisplayMetrics
@@ -56,7 +54,12 @@ class RemoteHostService : Service() {
         roomCode = intent?.getStringExtra(EXTRA_ROOM_CODE)
         val projectionData = intent?.getParcelableExtra<Intent>(EXTRA_PROJECTION_DATA)
 
-        startForeground(NOTIF_ID, buildNotification(), foregroundServiceType())
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, buildNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            startForeground(NOTIF_ID, buildNotification())
+        }
 
         if (roomCode != null && projectionData != null) {
             initWebRTC(roomCode!!, projectionData)
@@ -125,12 +128,6 @@ class RemoteHostService : Service() {
         screenCapturer!!.startCapture(metrics.widthPixels, metrics.heightPixels, 30)
 
         pcm.addVideoTrackAndOffer(videoSource!!)
-    }
-
-    private fun foregroundServiceType(): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-        } else 0
     }
 
     private fun buildNotification(): android.app.Notification {

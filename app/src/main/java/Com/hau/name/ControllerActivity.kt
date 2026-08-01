@@ -170,7 +170,7 @@ class ControllerActivity : AppCompatActivity() {
                 android.view.MotionEvent.ACTION_UP -> {
                     val dx = xRatio - swipeStartX
                     val dy = yRatio - swipeStartY
-                    val dist = Math.sqrt((dx * dx + dy * dy).toDouble())
+                    val dist = kotlin.math.sqrt((dx * dx + dy * dy).toDouble())
                     val duration = System.currentTimeMillis() - swipeStartTime
                     if (dist < 0.02) {
                         // Tap: jitter dưới 2% chiều rộng
