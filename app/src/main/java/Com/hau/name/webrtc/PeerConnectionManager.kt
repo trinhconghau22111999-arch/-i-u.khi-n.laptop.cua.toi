@@ -26,7 +26,17 @@ private const val TAG = "PeerConnectionManager"
 private val ICE_SERVERS = listOf(
     PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
     PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
-    PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer()
+    PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer(),
+    // TURN dự phòng — bắt buộc khi 2 máy ở sau CGNAT (mạng di động 4G/5G thường gặp),
+    // vì lúc đó STUN không đủ để tìm đường kết nối trực tiếp, cần relay qua TURN.
+    // Đây là TURN công khai miễn phí (Open Relay Project - metered.ca) dùng để demo/test;
+    // triển khai thật lâu dài nên tự dựng coturn hoặc dùng dịch vụ TURN trả phí ổn định hơn.
+    PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
+        .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer(),
+    PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
+        .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer(),
+    PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
+        .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
 )
 
 /**
