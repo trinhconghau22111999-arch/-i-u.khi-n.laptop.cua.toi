@@ -179,34 +179,43 @@ class ControllerActivity : AppCompatActivity() {
 
     private fun setupTouchHandling() {
         remoteRenderer.setOnTouchListener { view, event ->
-            // videoRectRatio() trả về null khi chưa nhận được onFrameResolutionChanged (thường
-            // xảy ra ở cú chạm đầu tiên, ngay sau khi vừa kết nối xong). Thay vì bỏ qua toàn
-            // bộ chạm đó (lỗi "chạm 1 cái không ăn"), dùng toàn bộ view làm vùng video tạm —
-            // tọa độ sẽ hơi lệch nếu video có letterbox, nhưng vẫn tốt hơn là mất thao tác.
             val rect = videoRectRatio(view.width, view.height)
                 ?: VideoRect(0f, 0f, view.width.toFloat(), view.height.toFloat())
-            val xRatio = (event.x - rect.left) / rect.width
-            val yRatio = (event.y - rect.top) / rect.height
-            val xClamped = xRatio.coerceIn(0f, 1f)
-            val yClamped = yRatio.coerceIn(0f, 1f)
+
+            // Chuyển pixel chạm -> tọa độ chuẩn hoá [0,1] trong vùng video thật.
+            // KHÔNG coerceIn ở đây — nếu ngón tay trượt ra letterbox, vẫn ghi nhận
+            // tọa độ thật (có thể < 0 hoặc > 1) để swipe ra rìa không bị kéo về giữa.
+            // InputInjectionService dùng coerceAtLeast/coerceAtMost khi nhân với pixels
+            // nên không bao giờ chạm ngoài màn hình Máy B.
+            fun toRatio(px: Float, origin: Float, size: Float) = (px - origin) / size
+
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    swipeStartX = xClamped
-                    swipeStartY = yClamped
+                    swipeStartX = toRatio(event.x, rect.left, rect.width).coerceIn(0f, 1f)
+                    swipeStartY = toRatio(event.y, rect.top, rect.height).coerceIn(0f, 1f)
                     swipeStartTime = System.currentTimeMillis()
                 }
                 android.view.MotionEvent.ACTION_UP -> {
-                    val dx = xClamped - swipeStartX
-                    val dy = yClamped - swipeStartY
-                    val dist = kotlin.math.sqrt((dx * dx + dy * dy).toDouble())
+                    // Điểm cuối swipe: clamp về [0,1] vì ngoài màn hình Máy B không có gì
+                    val xEnd = toRatio(event.x, rect.left, rect.width).coerceIn(0f, 1f)
+                    val yEnd = toRatio(event.y, rect.top, rect.height).coerceIn(0f, 1f)
+                    val dx = xEnd - swipeStartX
+                    val dy = yEnd - swipeStartY
                     val duration = System.currentTimeMillis() - swipeStartTime
-                    if (dist < 0.02) {
+
+                    // Ngưỡng tap: 20px pixel thật thay vì tỉ lệ 2% —
+                    // tỉ lệ 2% trên view 400px chỉ = 8px, dễ bị nhầm thành swipe do jitter ngón tay.
+                    val distPx = kotlin.math.sqrt(
+                        (dx * rect.width) * (dx * rect.width) +
+                        (dy * rect.height) * (dy * rect.height)
+                    ).toDouble()
+                    if (distPx < 20) {
                         sendCommand(mapOf("type" to "tap", "x" to swipeStartX, "y" to swipeStartY))
                     } else {
                         sendCommand(mapOf("type" to "swipe",
                             "x" to swipeStartX, "y" to swipeStartY,
-                            "x2" to xClamped, "y2" to yClamped,
-                            "duration" to duration.coerceIn(100, 1000)))
+                            "x2" to xEnd, "y2" to yEnd,
+                            "duration" to duration.coerceIn(80L, 1500L)))
                     }
                 }
             }
