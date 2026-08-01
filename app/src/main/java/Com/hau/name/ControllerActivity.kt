@@ -11,6 +11,7 @@ import Com.hau.name.webrtc.PeerConnectionManager
 import Com.hau.name.webrtc.SignalingClient
 import com.google.firebase.database.FirebaseDatabase
 import org.webrtc.EglBase
+import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 
 private const val TAG = "ControllerActivity"
@@ -32,6 +33,12 @@ class ControllerActivity : AppCompatActivity() {
     private var peerConnectionManager: PeerConnectionManager? = null
     private lateinit var eglBase: EglBase
     private lateinit var remoteRenderer: SurfaceViewRenderer
+
+    // Kích thước khung hình video thật (độ phân giải màn hình Máy B), khác với kích thước
+    // của SurfaceViewRenderer trên màn hình Máy A — cần để tính đúng vùng video hiển thị
+    // (trừ phần viền đen letterbox) khi map toạ độ chạm.
+    @Volatile private var remoteFrameWidth: Int = 0
+    @Volatile private var remoteFrameHeight: Int = 0
 
     // Views
     private lateinit var layoutCodeEntry: android.widget.LinearLayout
@@ -66,7 +73,20 @@ class ControllerActivity : AppCompatActivity() {
             )
         }
         remoteViewContainer.addView(remoteRenderer)
-        remoteRenderer.init(eglBase.eglBaseContext, null)
+        remoteRenderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+        remoteRenderer.init(eglBase.eglBaseContext, object : RendererCommon.RendererEvents {
+            override fun onFirstFrameRendered() {}
+            override fun onFrameResolutionChanged(videoWidth: Int, videoHeight: Int, rotation: Int) {
+                // rotation 90/270 -> chiều rộng/cao thực tế bị hoán đổi khi hiển thị
+                if (rotation == 90 || rotation == 270) {
+                    remoteFrameWidth = videoHeight
+                    remoteFrameHeight = videoWidth
+                } else {
+                    remoteFrameWidth = videoWidth
+                    remoteFrameHeight = videoHeight
+                }
+            }
+        })
         setupTouchHandling()
 
         btnConnect.setOnClickListener {
@@ -159,8 +179,11 @@ class ControllerActivity : AppCompatActivity() {
 
     private fun setupTouchHandling() {
         remoteRenderer.setOnTouchListener { view, event ->
-            val xRatio = event.x / view.width
-            val yRatio = event.y / view.height
+            val ratio = videoRectRatio(view.width, view.height) ?: return@setOnTouchListener true
+            val xRatio = (event.x - ratio.left) / ratio.width
+            val yRatio = (event.y - ratio.top) / ratio.height
+            // Chạm rơi vào viền đen (letterbox) — không có nội dung màn hình Máy B ở đó, bỏ qua.
+            if (xRatio < 0f || xRatio > 1f || yRatio < 0f || yRatio > 1f) return@setOnTouchListener true
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     swipeStartX = xRatio
@@ -185,6 +208,34 @@ class ControllerActivity : AppCompatActivity() {
                 }
             }
             true
+        }
+    }
+
+    private data class VideoRect(val left: Float, val top: Float, val width: Float, val height: Float)
+
+    /**
+     * Tính vùng hiển thị thật của video (loại trừ viền đen letterbox) bên trong SurfaceViewRenderer,
+     * dựa trên tỉ lệ khung hình thật của Máy B (remoteFrameWidth/Height) so với kích thước view.
+     * Trả về null nếu chưa nhận được khung hình nào (chưa biết tỉ lệ thật).
+     */
+    private fun videoRectRatio(viewWidth: Int, viewHeight: Int): VideoRect? {
+        val frameW = remoteFrameWidth
+        val frameH = remoteFrameHeight
+        if (frameW <= 0 || frameH <= 0 || viewWidth <= 0 || viewHeight <= 0) return null
+
+        val videoAspect = frameW.toFloat() / frameH.toFloat()
+        val viewAspect = viewWidth.toFloat() / viewHeight.toFloat()
+
+        return if (videoAspect > viewAspect) {
+            // Video "rộng" hơn view -> lấp đầy chiều rộng, chừa viền đen trên/dưới
+            val displayedHeight = viewWidth / videoAspect
+            val top = (viewHeight - displayedHeight) / 2f
+            VideoRect(left = 0f, top = top, width = viewWidth.toFloat(), height = displayedHeight)
+        } else {
+            // Video "cao" hơn view -> lấp đầy chiều cao, chừa viền đen trái/phải
+            val displayedWidth = viewHeight * videoAspect
+            val left = (viewWidth - displayedWidth) / 2f
+            VideoRect(left = left, top = 0f, width = displayedWidth, height = viewHeight.toFloat())
         }
     }
 

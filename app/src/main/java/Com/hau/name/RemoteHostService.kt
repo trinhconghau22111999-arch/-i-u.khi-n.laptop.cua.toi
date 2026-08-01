@@ -118,6 +118,13 @@ class RemoteHostService : Service() {
         surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
         videoSource = pcm.factory.createVideoSource(true)
 
+        // Giảm độ phân giải capture nếu màn hình quá lớn — giảm băng thông cần thiết,
+        // giúp hình mượt hơn trên mạng di động chậm. Giữ nguyên tỉ lệ khung hình.
+        val maxDimension = 960
+        val scale = minOf(1f, maxDimension.toFloat() / maxOf(metrics.widthPixels, metrics.heightPixels))
+        val captureWidth = (metrics.widthPixels * scale).toInt()
+        val captureHeight = (metrics.heightPixels * scale).toInt()
+
         screenCapturer = ScreenCapturerAndroid(projectionData, object : MediaProjection.Callback() {
             override fun onStop() {
                 Log.d(TAG, "MediaProjection stopped by system")
@@ -125,7 +132,8 @@ class RemoteHostService : Service() {
             }
         })
         screenCapturer!!.initialize(surfaceTextureHelper, applicationContext, videoSource!!.capturerObserver)
-        screenCapturer!!.startCapture(metrics.widthPixels, metrics.heightPixels, 30)
+        // Giảm còn 15fps thay vì 30fps — vẫn đủ mượt để điều khiển, giảm ~50% băng thông cần thiết.
+        screenCapturer!!.startCapture(captureWidth, captureHeight, 15)
 
         pcm.addVideoTrackAndOffer(videoSource!!)
     }
