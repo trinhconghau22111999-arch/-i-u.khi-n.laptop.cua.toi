@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>false</UseWindowsForms>
+    <!-- System.Drawing.Common (GDI screen capture) chỉ chạy trên Windows kể từ .NET 6+,
+         net8.0-windows đã tự cho phép dùng, không cần EnableWindowsTargeting thêm. -->
+    <AssemblyName>WindowsAgent</AssemblyName>
+    <RootNamespace>WindowsAgent</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Stack WebRTC managed, không cần build native libwebrtc -->
+    <PackageReference Include="SIPSorcery" Version="6.2.11" />
+    <!-- Bọc libvpx (VP8) sẵn native binaries qua NuGet, dùng để mã hoá video màn hình -->
+    <PackageReference Include="SIPSorceryMedia.Encoders" Version="0.0.14" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
+  </ItemGroup>
+
+</Project>

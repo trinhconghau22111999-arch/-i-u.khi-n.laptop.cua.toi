@@ -58,6 +58,13 @@ class ControllerActivity : AppCompatActivity() {
     private lateinit var editCode: EditText
     private lateinit var btnConnect: Button
 
+    // Bàn phím ảo — dùng khi bên bị điều khiển là laptop (Windows Agent), gửi lệnh
+    // "text"/"key" mà InputInjectionService (Android) hiện chưa xử lý nhưng sẽ bỏ qua an toàn
+    // (chỉ có tap/swipe), còn Windows Agent thì đọc và gõ thật vào máy.
+    private lateinit var btnToggleKeyboard: Button
+    private lateinit var layoutKeyboardBar: android.widget.LinearLayout
+    private lateinit var editRemoteText: EditText
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_controller)
@@ -88,6 +95,8 @@ class ControllerActivity : AppCompatActivity() {
             }
             showCodeEntry()
         }
+
+        setupKeyboardBar()
 
         // Thêm SurfaceViewRenderer vào container để render video Máy B
         remoteRenderer = SurfaceViewRenderer(this).apply {
@@ -243,6 +252,49 @@ class ControllerActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Bàn phím ảo gửi lệnh "text"/"key" — chỉ có ý nghĩa khi bên bị điều khiển là Windows
+     * Agent (đọc và gõ thật bằng SendInput). Với Máy B là Android thì các lệnh này vô hại,
+     * InputInjectionService không có case xử lý nên chỉ bị bỏ qua.
+     *
+     * Cách gõ: mỗi lần ký tự trong ô nhập thay đổi (thêm chữ), gửi phần chữ MỚI vừa gõ rồi
+     * xoá ô về rỗng ngay — nhờ vậy luôn diff được ký tự mới mà không cần theo dõi con trỏ.
+     * Xoá chữ (backspace) khi ô đang rỗng thì dùng nút ⌫ riêng vì bàn phím ảo Android không
+     * đáng tin cậy khi báo sự kiện phím xoá lúc EditText đã rỗng.
+     */
+    private fun setupKeyboardBar() {
+        btnToggleKeyboard = findViewById(R.id.btn_toggle_keyboard)
+        layoutKeyboardBar = findViewById(R.id.layout_keyboard_bar)
+        editRemoteText = findViewById(R.id.edit_remote_text)
+
+        btnToggleKeyboard.setOnClickListener {
+            val showing = layoutKeyboardBar.visibility == android.view.View.VISIBLE
+            layoutKeyboardBar.visibility = if (showing) android.view.View.GONE else android.view.View.VISIBLE
+            if (!showing) editRemoteText.requestFocus()
+        }
+
+        editRemoteText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val typed = s?.toString().orEmpty()
+                if (typed.isNotEmpty()) {
+                    sendCommand(mapOf("type" to "text", "text" to typed))
+                    s?.clear()
+                }
+            }
+        })
+
+        findViewById<Button>(R.id.btn_key_enter).setOnClickListener { sendKey("enter") }
+        findViewById<Button>(R.id.btn_key_backspace).setOnClickListener { sendKey("backspace") }
+        findViewById<Button>(R.id.btn_key_esc).setOnClickListener { sendKey("esc") }
+        findViewById<Button>(R.id.btn_key_tab).setOnClickListener { sendKey("tab") }
+    }
+
+    private fun sendKey(key: String) {
+        sendCommand(mapOf("type" to "key", "key" to key))
+    }
+
     private data class VideoRect(val left: Float, val top: Float, val width: Float, val height: Float)
 
     /**
@@ -286,6 +338,7 @@ class ControllerActivity : AppCompatActivity() {
     private fun showCodeEntry() {
         layoutCodeEntry.visibility = android.view.View.VISIBLE
         remoteViewContainer.visibility = android.view.View.GONE
+        layoutKeyboardBar.visibility = android.view.View.GONE
         btnConnect.isEnabled = true
         btnConnect.text = "Kết nối"
         releaseWebRTC()

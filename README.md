@@ -8,9 +8,22 @@ phiên làm việc kèm nút ngắt kết nối.
 
 ## Kiến trúc
 
-- **Máy B (được điều khiển):** `ConsentActivity` → `RemoteHostService` →
-  `InputInjectionService`
-- **Máy A (điều khiển):** `ControllerActivity`
+Có 2 chế độ, dùng chung 1 cơ chế signaling nên máy điều khiển (điện thoại)
+không cần biết bên kia là điện thoại hay laptop:
+
+- **Điện thoại điều khiển điện thoại:**
+  - Máy B (được điều khiển): `ConsentActivity` → `RemoteHostService` →
+    `InputInjectionService`
+  - Máy A (điều khiển): `ControllerActivity`
+- **Điện thoại điều khiển laptop Windows:**
+  - Laptop (được điều khiển): [`windows-agent/`](windows-agent/) — chương
+    trình C#/.NET chạy trên Windows, đóng vai trò tương đương
+    `RemoteHostService` + `InputInjectionService` nhưng dùng WinAPI thay vì
+    AccessibilityService. Xem hướng dẫn build/chạy trong
+    [`windows-agent/README.md`](windows-agent/README.md).
+  - Điện thoại (điều khiển): vẫn dùng `ControllerActivity` như trên, có thêm
+    bàn phím ảo (nút ⌨ ở góc dưới-phải màn hình điều khiển) để gõ chữ vào
+    laptop — vuốt/chạm để điều khiển chuột dùng lại đúng cơ chế cũ.
 - **Signaling:** Firebase Realtime Database (không cần tự dựng server)
 - **Truyền video:** WebRTC
 

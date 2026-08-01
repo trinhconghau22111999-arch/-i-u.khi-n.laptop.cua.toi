@@ -62,6 +62,75 @@
             android:text="Ngắt"
             android:alpha="0.75"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        <!-- Nút bật/tắt bàn phím ảo — hữu ích khi bên bị điều khiển là laptop (Windows Agent),
+             chuột (tap/swipe) vẫn dùng vùng video như bình thường, đây chỉ thêm khả năng gõ chữ. -->
+        <Button
+            android:id="@+id/btn_toggle_keyboard"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="12dp"
+            android:text="⌨"
+            android:alpha="0.75"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        <!-- Thanh bàn phím: gõ chữ + các phím đặc biệt thường dùng. Ẩn mặc định. -->
+        <LinearLayout
+            android:id="@+id/layout_keyboard_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:background="#DD000000"
+            android:padding="8dp"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/edit_remote_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Gõ để gửi từng ký tự sang máy bị điều khiển"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#AAAAAA"
+                android:inputType="text"
+                android:imeOptions="actionDone" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_key_tab"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tab" />
+
+                <Button
+                    android:id="@+id/btn_key_backspace"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="⌫" />
+
+                <Button
+                    android:id="@+id/btn_key_esc"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Esc" />
+
+                <Button
+                    android:id="@+id/btn_key_enter"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Enter ⏎" />
+            </LinearLayout>
+        </LinearLayout>
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
