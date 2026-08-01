@@ -59,16 +59,6 @@ class ControllerActivity : AppCompatActivity() {
 
         eglBase = EglBase.create()
 
-        // Đọc navigation bar inset sớm nhất có thể — ViewCompat.setOnApplyWindowInsetsListener
-        // được gọi lại mỗi khi insets thay đổi (xoay màn hình, bật/tắt gesture nav...) nên
-        // navBarHeight luôn phản ánh đúng trạng thái hiện tại.
-        val rootView = window.decorView.rootView
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
-            val navInsets = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            navBarHeight = navInsets.bottom
-            insets
-        }
-
         layoutCodeEntry = findViewById(R.id.layout_code_entry)
         remoteViewContainer = findViewById(R.id.remote_view_container)
         editCode = findViewById(R.id.edit_pairing_code)
@@ -199,12 +189,10 @@ class ControllerActivity : AppCompatActivity() {
             val rect = videoRectRatio(view.width, view.height)
                 ?: VideoRect(0f, 0f, view.width.toFloat(), view.height.toFloat())
 
-            // event.y được đo từ góc trên-trái màn hình VẬT LÝ (bao gồm navigation bar),
-            // nhưng view.height KHÔNG tính navigation bar (bị Android đẩy lên trên insets).
-            // → phải trừ đi navBarHeight để event.y và view height cùng hệ quy chiếu.
-            // navBarHeight = 0 trên máy dùng gesture navigation (full-screen swipe), nên
-            // phép trừ này an toàn cho cả 2 kiểu nav.
-            val adjustedY = event.y - navBarHeight
+            // event.y từ setOnTouchListener đã là tọa độ TRONG VIEW (relative to view),
+            // KHÔNG phải tọa độ màn hình vật lý → không cần trừ navBarHeight.
+            // navBarHeight chỉ cần thiết khi dùng getRawY() (tọa độ màn hình vật lý).
+            val adjustedY = event.y
 
             fun toRatio(px: Float, origin: Float, size: Float) = (px - origin) / size
 
