@@ -69,23 +69,7 @@ class RemoteHostService : Service() {
     }
 
     private fun initWebRTC(code: String, projectionData: Intent) {
-        val sigClient = SignalingClient(
-            roomCode = code,
-            isHost = true,
-            listener = object : SignalingClient.Listener {
-                override fun onOfferReceived(sdp: String) {} // host không nhận offer
-                override fun onAnswerReceived(sdp: String) {
-                    peerConnectionManager?.handleAnswer(sdp)
-                }
-                override fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, candidate: String) {
-                    peerConnectionManager?.addIceCandidate(sdpMid, sdpMLineIndex, candidate)
-                }
-                override fun onRemoteDisconnected() {
-                    Log.d(TAG, "Máy A ngắt kết nối — kết thúc phiên")
-                    cleanup(); stopSelf()
-                }
-            }
-        )
+        val sigClient = SignalingClient(roomCode = code, isHost = true, listener = buildHostListener())
         signalingClient = sigClient
 
         val pcm = PeerConnectionManager(
@@ -95,7 +79,15 @@ class RemoteHostService : Service() {
             signalingClient = sigClient,
             remoteSink = null,
             onConnected = { Log.d(TAG, "WebRTC connected!") },
-            onDisconnected = { Log.d(TAG, "WebRTC disconnected"); cleanup(); stopSelf() }
+            onDisconnected = {
+                // Trước đây: kết thúc hẳn phiên (cleanup + stopSelf) ngay khi mất kết nối.
+                // Giờ: mã ghép nối đóng vai trò "số phòng" cố định — A ngắt kết nối (chủ động
+                // bấm nút, tắt app, rớt mạng...) KHÔNG làm mất phòng, chỉ cần dựng lại
+                // PeerConnection + offer mới rồi chờ A (hoặc 1 A khác) vào lại đúng mã này.
+                // Phòng chỉ thật sự đóng khi B tự kết thúc (xem cleanup()/ACTION_STOP_SHARING).
+                Log.d(TAG, "Máy A ngắt kết nối — chuẩn bị đón kết nối lại với mã $code")
+                prepareForReconnect(code)
+            }
         )
         peerConnectionManager = pcm
         pcm.init()
@@ -123,6 +115,48 @@ class RemoteHostService : Service() {
         screenCapturer!!.startCapture(captureWidth, captureHeight, CAPTURE_FPS)
 
         pcm.addVideoTrackAndOffer(videoSource!!)
+    }
+
+    /** Tạo listener signaling dùng chung cho cả lần kết nối đầu tiên lẫn mỗi lần kết nối lại
+     * ([prepareForReconnect]) — tránh lặp code, và đảm bảo hành vi luôn nhất quán. */
+    private fun buildHostListener() = object : SignalingClient.Listener {
+        override fun onOfferReceived(sdp: String) {} // host không nhận offer
+        override fun onAnswerReceived(sdp: String) {
+            peerConnectionManager?.handleAnswer(sdp)
+        }
+        override fun onIceCandidateReceived(sdpMid: String, sdpMLineIndex: Int, candidate: String) {
+            peerConnectionManager?.addIceCandidate(sdpMid, sdpMLineIndex, candidate)
+        }
+        override fun onRemoteDisconnected() {
+            // status=="ended" giờ chỉ do CHÍNH Máy B tự ghi khi thật sự kết thúc phiên (xem
+            // cleanup()) — callback này gần như luôn là "tiếng vọng" từ chính B, không phải
+            // tín hiệu từ A nữa (A không còn ghi "ended" khi ngắt kết nối). cleanup() đã có
+            // chốt chặn gọi 2 lần (isCleanedUp) nên gọi lại ở đây vẫn an toàn.
+            Log.d(TAG, "status=ended — kết thúc phiên")
+            cleanup(); stopSelf()
+        }
+    }
+
+    /**
+     * Dựng lại PeerConnection + offer MỚI sau khi Máy A ngắt kết nối, GIỮ NGUYÊN mã ghép nối
+     * và tiếp tục capture màn hình — để A (hoặc 1 A khác) có thể vào lại đúng mã này bất cứ
+     * lúc nào, không cần B phải tạo mã mới. Đây là điểm khác biệt cốt lõi so với cleanup():
+     * không đụng tới MediaProjection/screenCapturer/videoSource (vẫn đang chạy), không ghi
+     * status="ended", không stopSelf().
+     */
+    private fun prepareForReconnect(code: String) {
+        val vs = videoSource ?: run {
+            Log.e(TAG, "prepareForReconnect: videoSource null — không thể tiếp tục, kết thúc phiên")
+            cleanup(); stopSelf(); return
+        }
+        signalingClient?.clearForReconnect()
+        signalingClient?.release()
+
+        val newSignaling = SignalingClient(roomCode = code, isHost = true, listener = buildHostListener())
+        signalingClient = newSignaling
+        peerConnectionManager?.reinitForReconnect(newSignaling)
+        peerConnectionManager?.addVideoTrackAndOffer(vs)
+        newSignaling.setWaiting()
     }
 
     /**

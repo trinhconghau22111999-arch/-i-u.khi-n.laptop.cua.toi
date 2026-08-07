@@ -55,7 +55,7 @@ class PeerConnectionManager(
     context: Context,
     val eglBase: EglBase,
     private val isHost: Boolean,
-    private val signalingClient: SignalingClient,
+    private var signalingClient: SignalingClient,
     /** Null trên Máy B (không cần render video của mình), non-null trên Máy A. */
     private val remoteSink: VideoSink? = null,
     private val onConnected: () -> Unit = {},
@@ -194,6 +194,23 @@ class PeerConnectionManager(
 
     fun addIceCandidate(sdpMid: String, sdpMLineIndex: Int, candidate: String) {
         peerConnection?.addIceCandidate(IceCandidate(sdpMid, sdpMLineIndex, candidate))
+    }
+
+    /**
+     * Đóng PeerConnection cũ (đã mất kết nối) và dựng lại 1 PeerConnection MỚI, dùng lại
+     * CÙNG [factory]/[eglBase] hiện có — không tạo factory mới, vì [VideoSource] bên
+     * RemoteHostService chỉ tương thích đúng factory đã sinh ra nó (native, tạo lại factory
+     * mới sẽ không dùng lại được VideoSource cũ). Dùng khi Máy A ngắt kết nối nhưng Máy B
+     * muốn giữ nguyên mã ghép nối để A vào lại được — tương đương "làm mới" phiên WebRTC.
+     */
+    fun reinitForReconnect(newSignalingClient: SignalingClient) {
+        peerConnection?.close()
+        peerConnection?.dispose()
+        peerConnection = null
+        localVideoTrack?.dispose()
+        localVideoTrack = null
+        signalingClient = newSignalingClient
+        init()
     }
 
     private fun createAndSendOffer() {

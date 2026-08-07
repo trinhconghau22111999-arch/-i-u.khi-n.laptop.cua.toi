@@ -90,9 +90,10 @@ class ControllerActivity : AppCompatActivity() {
 
         // Nút ngắt kết nối trong màn hình điều khiển
         findViewById<Button>(R.id.btn_disconnect).setOnClickListener {
-            connectedRoomCode?.let { code ->
-                database.child("rooms").child(code).child("status").setValue("ended")
-            }
+            // CHỈ đóng kết nối phía A — KHÔNG ghi status="ended" lên Firebase nữa. Mã ghép nối
+            // đóng vai trò "số phòng" cố định: Máy B vẫn tiếp tục chờ, giữ nguyên đúng mã này,
+            // nên A có thể vào lại (nhập lại đúng mã) bất cứ lúc nào mà không cần B tạo mã mới.
+            // Phòng chỉ thật sự đóng khi CHÍNH Máy B chủ động kết thúc (xem RemoteHostService).
             showCodeEntry()
         }
 

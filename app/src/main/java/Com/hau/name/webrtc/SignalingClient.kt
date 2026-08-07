@@ -112,8 +112,26 @@ class SignalingClient(
         room.child("status").setValue("connected")
     }
 
+    /** Đặt lại trạng thái "đang chờ kết nối" — dùng khi Máy A rời đi nhưng Máy B vẫn giữ
+     * nguyên mã ghép nối, sẵn sàng cho A (hoặc 1 A khác) vào lại bằng đúng mã đó. Khác với
+     * [markEnded] — "waiting" nghĩa là phòng vẫn còn hoạt động, chỉ là chưa có ai điều khiển. */
+    fun setWaiting() {
+        room.child("status").setValue("waiting")
+    }
+
     fun markEnded() {
         room.child("status").setValue("ended")
+    }
+
+    /** Xoá answer + toàn bộ ICE candidates cũ của cả 2 phía — bắt buộc trước khi Máy B tạo
+     * offer MỚI cho 1 lượt kết nối lại, để tránh dữ liệu ICE/answer từ phiên trước (đã hết
+     * hạn, tham chiếu tới PeerConnection cũ đã đóng) bị đọc nhầm là của phiên mới. KHÔNG xoá
+     * "offer" — nó sẽ tự bị ghi đè khi gửi offer mới ([sendOffer]). Chỉ B (isHost=true) gọi
+     * hàm này, ngay trước khi tạo lại PeerConnection. */
+    fun clearForReconnect() {
+        room.child("answer").removeValue()
+        room.child("iceCandidatesHost").removeValue()
+        room.child("iceCandidatesCtrl").removeValue()
     }
 
     /** Dọn toàn bộ listener khi phiên kết thúc để tránh rò rỉ bộ nhớ. */
