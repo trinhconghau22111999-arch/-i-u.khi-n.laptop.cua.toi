@@ -164,7 +164,16 @@ class RemoteHostService : Service() {
             .build()
     }
 
+    private var isCleanedUp = false
+
     private fun cleanup() {
+        // MediaProjection.Callback.onStop() và onDestroy() có thể cùng gọi cleanup() liên tiếp
+        // trong 1 vòng đời (vd. hệ thống tự dừng chia sẻ màn hình -> cleanup()+stopSelf() ->
+        // Android gọi onDestroy() -> cleanup() lần 2) — chặn double-release để tránh
+        // eglBase.release() hoặc dispose() bị gọi 2 lần gây crash.
+        if (isCleanedUp) return
+        isCleanedUp = true
+
         screenCapturer?.stopCapture()
         screenCapturer?.dispose()
         screenCapturer = null

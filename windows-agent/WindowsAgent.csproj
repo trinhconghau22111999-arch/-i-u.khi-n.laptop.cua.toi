@@ -17,10 +17,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Stack WebRTC managed, không cần build native libwebrtc -->
-    <PackageReference Include="SIPSorcery" Version="6.2.11" />
-    <!-- Bọc libvpx (VP8) sẵn native binaries qua NuGet, dùng để mã hoá video màn hình -->
-    <PackageReference Include="SIPSorceryMedia.Encoders" Version="0.0.14" />
+    <!-- Stack WebRTC managed, không cần build native libwebrtc.
+         ⚠️ Version 6.2.11 ghi ban đầu không còn tồn tại trên NuGet — CI đã tự động resolve
+         lên 8.0.0. Ghim đúng version 8.0.0 ở đây để hết cảnh báo NU1603 (mismatch version)
+         và để build luôn nhất quán (không phụ thuộc "bản mới nhất tại thời điểm build").
+         LƯU Ý BẢO MẬT: NuGet audit báo SIPSorcery 8.0.0 có 1 lỗ hổng mức "high severity"
+         (xem https://github.com/advisories/GHSA-28gm-jrmw-xx93). Mình không có mạng để tra
+         xem đã có version vá lỗi mới hơn chưa — bạn nên tự kiểm tra trên nuget.org/GitHub
+         Advisory trước khi dùng bản build này cho việc thật, đặc biệt nếu máy tiếp xúc mạng
+         không tin cậy. -->
+    <PackageReference Include="SIPSorcery" Version="8.0.0" />
+    <!-- Bọc libvpx (VP8) sẵn native binaries qua NuGet, dùng để mã hoá/giải mã video màn hình.
+         Version 0.0.14 ban đầu cũng không tồn tại — ghim đúng 8.0.7 mà CI đã resolve. -->
+    <PackageReference Include="SIPSorceryMedia.Encoders" Version="8.0.7" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
   </ItemGroup>
 
