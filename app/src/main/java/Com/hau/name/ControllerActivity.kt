@@ -8,9 +8,7 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import Com.hau.name.webrtc.PeerConnectionManager
 import Com.hau.name.webrtc.SignalingClient
 import com.google.firebase.database.FirebaseDatabase
@@ -351,21 +349,28 @@ class ControllerActivity : AppCompatActivity() {
     /**
      * Ẩn cả thanh trạng thái (pin, mạng...) lẫn thanh điều hướng của MÁY A khi đang xem/điều
      * khiển màn hình Máy B, để không lẫn UI của máy điều khiển với UI của máy bị điều khiển.
-     * Dùng chế độ "immersive sticky": vuốt từ mép màn hình sẽ hiện tạm 2 thanh đó ra (kiểu
-     * overlay mờ, không đẩy layout), rồi tự ẩn lại sau vài giây hoặc khi chạm ra ngoài.
+     * Dùng cờ SYSTEM_UI_FLAG_* trực tiếp của View (thuộc android.view.View gốc, không phụ
+     * thuộc version thư viện androidx nào) thay vì WindowInsetsControllerCompat — API này bị
+     * đánh dấu deprecated từ API 30 nhưng vẫn hoạt động bình thường tới targetSdk hiện tại (34),
+     * và chắc chắn biên dịch được vì luôn có sẵn trên mọi minSdk. Chế độ "immersive sticky":
+     * vuốt từ mép màn hình sẽ hiện tạm 2 thanh đó ra, rồi tự ẩn lại sau vài giây.
      */
+    @Suppress("DEPRECATION")
     private fun hideSystemBars() {
-        WindowCompat.setDecorFitsSystemWindow(window, false)
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.systemBars())
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        window.decorView.systemUiVisibility = (
+            android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+            )
     }
 
     /** Hiện lại 2 thanh đó khi quay về màn hình nhập mã (không còn xem video Máy B nữa). */
+    @Suppress("DEPRECATION")
     private fun showSystemBars() {
-        WindowCompat.setDecorFitsSystemWindow(window, true)
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.show(WindowInsetsCompat.Type.systemBars())
+        window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_VISIBLE
     }
 
     /**
