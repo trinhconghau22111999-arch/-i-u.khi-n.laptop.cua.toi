@@ -6,7 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <UseWindowsForms>false</UseWindowsForms>
+    <!-- Cần bật để dùng Form/PictureBox trong RemoteVideoForm.cs — cửa sổ hiển thị màn hình
+         máy kia khi laptop này ở vai "điều khiển" (ControllerSession). Vai "bị điều khiển"
+         (HostSession) không cần UI đồ hoạ nên trước đây để false. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <!-- System.Drawing.Common (GDI screen capture) chỉ chạy trên Windows kể từ .NET 6+,
          net8.0-windows đã tự cho phép dùng, không cần EnableWindowsTargeting thêm. -->
     <AssemblyName>WindowsAgent</AssemblyName>

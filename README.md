@@ -16,14 +16,19 @@ không cần biết bên kia là điện thoại hay laptop:
     `InputInjectionService`
   - Máy A (điều khiển): `ControllerActivity`
 - **Điện thoại điều khiển laptop Windows:**
-  - Laptop (được điều khiển): [`windows-agent/`](windows-agent/) — chương
-    trình C#/.NET chạy trên Windows, đóng vai trò tương đương
-    `RemoteHostService` + `InputInjectionService` nhưng dùng WinAPI thay vì
-    AccessibilityService. Xem hướng dẫn build/chạy trong
-    [`windows-agent/README.md`](windows-agent/README.md).
+  - Laptop (được điều khiển): [`windows-agent/`](windows-agent/) chạy ở
+    "Vai 1", đóng vai trò tương đương `RemoteHostService` +
+    `InputInjectionService` nhưng dùng WinAPI thay vì AccessibilityService.
   - Điện thoại (điều khiển): vẫn dùng `ControllerActivity` như trên, có thêm
     bàn phím ảo (nút ⌨ ở góc dưới-phải màn hình điều khiển) để gõ chữ vào
     laptop — vuốt/chạm để điều khiển chuột dùng lại đúng cơ chế cũ.
+- **Laptop Windows điều khiển máy khác (điện thoại hoặc laptop khác):**
+  - Laptop (điều khiển): [`windows-agent/`](windows-agent/) chạy ở "Vai 2" —
+    tương đương `ControllerActivity` nhưng cho Windows, có cửa sổ riêng hiển
+    thị hình máy kia và bắt chuột để gửi lệnh tap/swipe.
+  - Máy bị điều khiển (điện thoại): không cần sửa gì — `InputInjectionService`
+    chỉ đọc lệnh `tap`/`swipe` từ Firebase, không quan tâm ai gửi lệnh.
+  - Xem chi tiết cả 2 vai trong [`windows-agent/README.md`](windows-agent/README.md).
 - **Signaling:** Firebase Realtime Database (không cần tự dựng server)
 - **Truyền video:** WebRTC
 
@@ -96,19 +101,27 @@ ghi đè phòng của người khác.
 1. Mở app → chọn "Điều khiển một máy khác".
 2. Nhập mã 6 số → bấm Kết nối.
 
-## Những phần cần hoàn thiện thêm (đánh dấu TODO trong code)
+## Trạng thái hiện tại
 
-Bộ khung này đã có đủ: cấu trúc Gradle, Firebase, Manifest, quyền, luồng xin
-đồng ý, AccessibilityService gửi/nhận lệnh chạm. Phần **stream video WebRTC
-thật** (khởi tạo `PeerConnection`, `VideoCapturer` từ `MediaProjection`, trao
-đổi offer/answer/ICE candidates) được đánh dấu `// TODO` trong:
+Không còn `// TODO` nào trong code — cả 2 chế độ (điện thoại↔điện thoại và
+điện thoại→laptop) đã có đủ: WebRTC thật (`PeerConnectionManager.kt`, offer/
+answer/ICE qua Firebase), capture màn hình (`ScreenCapturerAndroid` bên
+Android, GDI BitBlt + mã hoá VP8 bên `windows-agent/ScreenCapture.cs`), và
+thực thi lệnh chạm/gõ phím (`InputInjectionService.kt` bên Android,
+`InputInjector.cs` dùng WinAPI `SendInput` bên Windows).
 
-- `RemoteHostService.kt`
-- `ControllerActivity.kt`
+- App Android build qua CI (`Build Debug APK`, ubuntu-latest) — cần secret
+  `GOOGLE_SERVICES_JSON_BASE64` đã nói ở Bước 2.
+- Windows Agent build qua CI riêng (`Build Windows Agent`, windows-latest),
+  ra file `WindowsAgent.exe` self-contained — xem
+  [`windows-agent/README.md`](windows-agent/README.md) để biết cách kiểm tra
+  build có thành công không và cách chạy.
 
-Đây là phần code dài nhất của dự án (thường 200–400 dòng cho một
-implementation WebRTC đầy đủ) — nếu bạn muốn, mình có thể viết tiếp phần này
-ở lượt sau.
+Nếu bạn đã chạy thử mà không kết nối được / không điều khiển được, gửi mình:
+mã lỗi hoặc log cụ thể (Logcat bên Android, hoặc console output bên Windows
+Agent), và ở bước nào bị kẹt (không lấy được mã 6 số? kết nối treo ở "Đang kết
+nối..."? kết nối được nhưng không thấy hình / không điều khiển được?) — mình
+sẽ sửa đúng chỗ thay vì đoán.
 
 ## Nguyên tắc thiết kế bắt buộc giữ nguyên khi bạn chỉnh sửa
 

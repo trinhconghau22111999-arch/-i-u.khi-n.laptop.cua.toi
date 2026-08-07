@@ -24,7 +24,7 @@ public sealed class HostSession : IAsyncDisposable
     public HostSession(string firebaseDbUrl, string roomCode)
     {
         RoomCode = roomCode;
-        _signaling = new FirebaseSignaling(firebaseDbUrl, roomCode);
+        _signaling = new FirebaseSignaling(firebaseDbUrl, roomCode, isHost: true);
     }
 
     public async Task StartAsync()
