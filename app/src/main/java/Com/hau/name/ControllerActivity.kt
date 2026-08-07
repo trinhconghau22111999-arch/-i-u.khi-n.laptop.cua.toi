@@ -8,7 +8,9 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import Com.hau.name.webrtc.PeerConnectionManager
 import Com.hau.name.webrtc.SignalingClient
 import com.google.firebase.database.FirebaseDatabase
@@ -188,6 +190,7 @@ class ControllerActivity : AppCompatActivity() {
                 runOnUiThread {
                     layoutCodeEntry.visibility = android.view.View.GONE
                     remoteViewContainer.visibility = android.view.View.VISIBLE
+                    hideSystemBars()
                     Toast.makeText(this, "Đã kết nối!", Toast.LENGTH_SHORT).show()
                 }
             },
@@ -341,7 +344,40 @@ class ControllerActivity : AppCompatActivity() {
         layoutKeyboardBar.visibility = android.view.View.GONE
         btnConnect.isEnabled = true
         btnConnect.text = "Kết nối"
+        showSystemBars()
         releaseWebRTC()
+    }
+
+    /**
+     * Ẩn cả thanh trạng thái (pin, mạng...) lẫn thanh điều hướng của MÁY A khi đang xem/điều
+     * khiển màn hình Máy B, để không lẫn UI của máy điều khiển với UI của máy bị điều khiển.
+     * Dùng chế độ "immersive sticky": vuốt từ mép màn hình sẽ hiện tạm 2 thanh đó ra (kiểu
+     * overlay mờ, không đẩy layout), rồi tự ẩn lại sau vài giây hoặc khi chạm ra ngoài.
+     */
+    private fun hideSystemBars() {
+        WindowCompat.setDecorFitsSystemWindow(window, false)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
+    /** Hiện lại 2 thanh đó khi quay về màn hình nhập mã (không còn xem video Máy B nữa). */
+    private fun showSystemBars() {
+        WindowCompat.setDecorFitsSystemWindow(window, true)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.show(WindowInsetsCompat.Type.systemBars())
+    }
+
+    /**
+     * Sau khi người dùng vuốt ra thanh trạng thái/điều hướng (hiện tạm), rồi chạm vào App khác
+     * (chuyển focus) rồi quay lại App này, hệ thống có thể để 2 thanh đó hiện luôn thay vì tự ẩn
+     * — chủ động ẩn lại mỗi khi cửa sổ được focus trở lại trong lúc đang xem video Máy B.
+     */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && remoteViewContainer.visibility == android.view.View.VISIBLE) {
+            hideSystemBars()
+        }
     }
 
     private fun releaseWebRTC() {
