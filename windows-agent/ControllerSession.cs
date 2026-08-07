@@ -101,8 +101,8 @@ public sealed class ControllerSession : IAsyncDisposable
             var decodedFrames = _codec.DecodeVideo(payload, VideoPixelFormatsEnum.I420, VideoCodecsEnum.VP8);
             foreach (var frame in decodedFrames)
             {
-                var bmp = I420ToBitmap(frame.Sample, frame.Width, frame.Height);
-                _form?.UpdateFrame(bmp, frame.Width, frame.Height);
+                var bmp = I420ToBitmap(frame.Sample, (int)frame.Width, (int)frame.Height);
+                _form?.UpdateFrame(bmp, (int)frame.Width, (int)frame.Height);
             }
         }
         catch (Exception ex)
